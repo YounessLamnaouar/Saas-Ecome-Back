@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CollectionController;
+use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ProductController;
 use Illuminate\Support\Facades\Route;
 
@@ -16,13 +17,15 @@ Route::prefix('v1')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
     });
 
-    // --- Public catalog reads ---
+    // --- Public catalog reads & Orders ---
     Route::get('/products', [ProductController::class, 'index']);
     Route::get('/products/{product}', [ProductController::class, 'show']);
     Route::get('/categories', [CategoryController::class, 'index']);
     Route::get('/categories/{category}', [CategoryController::class, 'show']);
     Route::get('/collections', [CollectionController::class, 'index']);
     Route::get('/collections/{collection}', [CollectionController::class, 'show']);
+
+    Route::post('/orders', [OrderController::class, 'store']);
 
     // --- Admin-only writes ---
     Route::middleware(['auth:sanctum', 'admin'])->group(function () {
