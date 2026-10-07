@@ -9,6 +9,13 @@ use Illuminate\Support\Str;
 
 class CollectionController extends Controller
 {
+    protected function resolveCollection($idOrSlug)
+    {
+        return Collection::where('slug', $idOrSlug)
+            ->orWhere('id', is_numeric($idOrSlug) ? $idOrSlug : 0)
+            ->firstOrFail();
+    }
+
     public function index(Request $request)
     {
         $collections = Collection::withCount('products')->get()->map(function ($col) {
@@ -28,8 +35,9 @@ class CollectionController extends Controller
         ]);
     }
 
-    public function show(Collection $collection)
+    public function show($idOrSlug)
     {
+        $collection = $this->resolveCollection($idOrSlug);
         $collection->load('products');
 
         return response()->json([
@@ -57,8 +65,10 @@ class CollectionController extends Controller
         return response()->json(['data' => $collection], 201);
     }
 
-    public function update(Request $request, Collection $collection)
+    public function update(Request $request, $idOrSlug)
     {
+        $collection = $this->resolveCollection($idOrSlug);
+
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'slug' => 'sometimes|required|string|max:255|unique:collections,slug,' . $collection->id,
@@ -73,8 +83,9 @@ class CollectionController extends Controller
         return response()->json(['data' => $collection]);
     }
 
-    public function destroy(Collection $collection)
+    public function destroy($idOrSlug)
     {
+        $collection = $this->resolveCollection($idOrSlug);
         $collection->delete();
 
         return response()->json(null, 204);

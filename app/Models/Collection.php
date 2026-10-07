@@ -25,6 +25,11 @@ class Collection extends Model
         ];
     }
 
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(Product::class);

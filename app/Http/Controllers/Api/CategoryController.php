@@ -9,6 +9,13 @@ use Illuminate\Support\Str;
 
 class CategoryController extends Controller
 {
+    protected function resolveCategory($idOrSlug)
+    {
+        return Category::where('slug', $idOrSlug)
+            ->orWhere('id', is_numeric($idOrSlug) ? $idOrSlug : 0)
+            ->firstOrFail();
+    }
+
     public function index(Request $request)
     {
         $categories = Category::withCount('products')->get()->map(function ($cat) {
@@ -27,8 +34,9 @@ class CategoryController extends Controller
         ]);
     }
 
-    public function show(Category $category)
+    public function show($idOrSlug)
     {
+        $category = $this->resolveCategory($idOrSlug);
         $category->loadCount('products');
 
         return response()->json([
@@ -62,8 +70,10 @@ class CategoryController extends Controller
         return response()->json(['data' => $category], 201);
     }
 
-    public function update(Request $request, Category $category)
+    public function update(Request $request, $idOrSlug)
     {
+        $category = $this->resolveCategory($idOrSlug);
+
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'slug' => 'sometimes|required|string|max:255|unique:categories,slug,' . $category->id,
@@ -77,8 +87,9 @@ class CategoryController extends Controller
         return response()->json(['data' => $category]);
     }
 
-    public function destroy(Category $category)
+    public function destroy($idOrSlug)
     {
+        $category = $this->resolveCategory($idOrSlug);
         $category->delete();
 
         return response()->json(null, 204);
