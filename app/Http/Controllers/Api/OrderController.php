@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Product;
+use App\Notifications\OrderStatusChanged;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -18,6 +19,7 @@ class OrderController extends Controller
         return [
             'id' => $order->id,
             'code' => $order->code,
+            'status_label' => $order->status->label(request()->getPreferredLanguage(['en', 'fr']) ?? 'en'),
             'customer' => [
                 'name' => $order->customer_name,
                 'phone' => $order->customer_phone,
@@ -78,10 +80,18 @@ class OrderController extends Controller
         $notes = $request->input('customer.notes') ?? $request->input('notes');
 
         $missing = [];
-        if (empty($name)) $missing[] = 'customer_name';
-        if (empty($phone)) $missing[] = 'customer_phone';
-        if (empty($address)) $missing[] = 'customer_address';
-        if (empty($city)) $missing[] = 'customer_city';
+        if (empty($name)) {
+            $missing[] = 'customer_name';
+        }
+        if (empty($phone)) {
+            $missing[] = 'customer_phone';
+        }
+        if (empty($address)) {
+            $missing[] = 'customer_address';
+        }
+        if (empty($city)) {
+            $missing[] = 'customer_city';
+        }
 
         if (! empty($missing)) {
             return response()->json([
@@ -106,9 +116,9 @@ class OrderController extends Controller
 
             if (! empty($insufficient)) {
                 abort(response()->json([
-                    'message' => 'Insufficient stock for product(s): ' . implode(', ', $insufficient),
+                    'message' => 'Insufficient stock for product(s): '.implode(', ', $insufficient),
                     'errors' => [
-                        'items' => ['Insufficient stock for: ' . implode(', ', $insufficient)],
+                        'items' => ['Insufficient stock for: '.implode(', ', $insufficient)],
                     ],
                 ], 422));
             }
@@ -136,7 +146,7 @@ class OrderController extends Controller
             }
 
             do {
-                $code = 'CMD-' . date('Ymd') . '-' . strtoupper(Str::random(4));
+                $code = 'CMD-'.date('Ymd').'-'.strtoupper(Str::random(4));
             } while (Order::where('code', $code)->exists());
 
             $order = Order::create([
@@ -276,31 +286,34 @@ class OrderController extends Controller
             'status' => ['required', Rule::enum(OrderStatus::class)],
         ]);
 
-        $order = Order::findOrFail($id);
-        $newStatus = OrderStatus::from($validated['status']);
+        return DB::transaction(function () use ($id, $validated) {
+            $order = Order::lockForUpdate()->findOrFail($id);
+            $newStatus = OrderStatus::from($validated['status']);
 
-        if (! $order->status->canTransitionTo($newStatus)) {
+            if (! $order->status->canTransitionTo($newStatus)) {
+                return response()->json([
+                    'message' => 'Cannot transition order status backwards or to the same status.',
+                    'errors' => [
+                        'status' => ['Transitions are forward-only (en_attente -> confirmee -> en_cours_de_livraison -> livre).'],
+                    ],
+                ], 422);
+            }
+
+            $order->update(['status' => $newStatus]);
+
+            $order->histories()->create([
+                'status' => $newStatus,
+                'changed_by' => auth()->id(),
+                'created_at' => now(),
+            ]);
+
+            $order->load(['items', 'histories.changer', 'user']);
+            $order->user?->notify(new OrderStatusChanged($order->code, $newStatus->value));
+
             return response()->json([
-                'message' => 'Cannot transition order status backwards or to the same status.',
-                'errors' => [
-                    'status' => ['Transitions are forward-only (en_attente -> confirmee -> en_cours_de_livraison -> livre).'],
-                ],
-            ], 422);
-        }
-
-        $order->update(['status' => $newStatus]);
-
-        $order->histories()->create([
-            'status' => $newStatus,
-            'changed_by' => auth()->id(),
-            'created_at' => now(),
-        ]);
-
-        $order->load(['items', 'histories.changer', 'user']);
-
-        return response()->json([
-            'message' => 'Order status updated successfully.',
-            'data' => $this->formatOrder($order),
-        ]);
+                'message' => 'Order status updated successfully.',
+                'data' => $this->formatOrder($order),
+            ]);
+        });
     }
 }

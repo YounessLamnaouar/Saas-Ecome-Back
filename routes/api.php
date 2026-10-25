@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
 
     // --- Auth ---
+    Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
+    Route::post('/auth/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
     Route::post('/auth/register', [AuthController::class, 'register']);
     Route::post('/auth/login', [AuthController::class, 'login']);
     Route::middleware('auth:sanctum')->group(function () {
@@ -25,7 +27,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/collections', [CollectionController::class, 'index']);
     Route::get('/collections/{collection}', [CollectionController::class, 'show']);
 
-    Route::post('/orders', [OrderController::class, 'store']);
+    Route::post('/orders', [OrderController::class, 'store'])->middleware('auth:sanctum');
     Route::get('/orders/track', [OrderController::class, 'track'])->middleware('throttle:30,1');
 
     Route::middleware('auth:sanctum')->group(function () {

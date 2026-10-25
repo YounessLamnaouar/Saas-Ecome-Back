@@ -16,10 +16,15 @@ class OrderTrackingTest extends TestCase
     use RefreshDatabase;
 
     protected User $admin;
+
     protected User $customer1;
+
     protected User $customer2;
+
     protected Category $category;
+
     protected Product $product1;
+
     protected Product $product2;
 
     protected function setUp(): void
@@ -93,6 +98,7 @@ class OrderTrackingTest extends TestCase
 
     public function test_order_creation_fails_with_422_when_stock_is_insufficient(): void
     {
+        Sanctum::actingAs($this->customer1);
         $payload = [
             'customer' => [
                 'name' => 'Bob Marley',

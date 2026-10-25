@@ -9,6 +9,16 @@ enum OrderStatus: string
     case EN_COURS_DE_LIVRAISON = 'en_cours_de_livraison';
     case LIVRE = 'livre';
 
+    public function label(string $locale = 'en'): string
+    {
+        return match ($this) {
+            self::EN_ATTENTE => $locale === 'fr' ? 'En attente' : 'Pending',
+            self::CONFIRMEE => $locale === 'fr' ? 'Confirmée' : 'Confirmed',
+            self::EN_COURS_DE_LIVRAISON => $locale === 'fr' ? 'En cours de livraison' : 'Out for delivery',
+            self::LIVRE => $locale === 'fr' ? 'Livrée' : 'Delivered',
+        };
+    }
+
     public static function order(): array
     {
         return [
