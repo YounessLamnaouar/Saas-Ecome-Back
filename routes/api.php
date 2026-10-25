@@ -26,9 +26,19 @@ Route::prefix('v1')->group(function () {
     Route::get('/collections/{collection}', [CollectionController::class, 'show']);
 
     Route::post('/orders', [OrderController::class, 'store']);
+    Route::get('/orders/track', [OrderController::class, 'track'])->middleware('throttle:30,1');
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/my-orders', [OrderController::class, 'myOrders']);
+        Route::get('/my-orders/{code}', [OrderController::class, 'myOrder']);
+    });
 
     // --- Admin-only writes ---
     Route::middleware(['auth:sanctum', 'admin'])->group(function () {
+        Route::get('/admin/orders', [OrderController::class, 'adminIndex']);
+        Route::get('/admin/orders/{id}', [OrderController::class, 'adminShow']);
+        Route::patch('/admin/orders/{id}/status', [OrderController::class, 'adminUpdateStatus']);
+
         Route::post('/products', [ProductController::class, 'store']);
         Route::put('/products/{product}', [ProductController::class, 'update']);
         Route::patch('/products/{product}', [ProductController::class, 'update']);

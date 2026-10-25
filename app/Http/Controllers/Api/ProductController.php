@@ -37,13 +37,18 @@ class ProductController extends Controller
             'stock' => (int) ($product->stock ?? 0),
             'availability' => ($product->stock ?? 0) > 0 ? 'in_stock' : 'out_of_stock',
             'tags' => $product->relationLoaded('tags') && $product->tags ? $product->tags->pluck('name')->toArray() : [],
+            'collections' => $product->relationLoaded('collections') && $product->collections ? $product->collections->map(fn ($c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'slug' => $c->slug,
+            ])->values()->toArray() : [],
             'created_at' => $product->created_at?->toISOString(),
         ];
     }
 
     public function index(Request $request)
     {
-        $query = Product::with(['category', 'tags', 'images']);
+        $query = Product::with(['category', 'tags', 'images', 'collections']);
 
         if ($request->filled('category')) {
             $query->whereHas('category', function ($q) use ($request) {
@@ -96,7 +101,7 @@ class ProductController extends Controller
 
     public function show(Product $product)
     {
-        $product->load(['category', 'tags', 'images']);
+        $product->load(['category', 'tags', 'images', 'collections']);
 
         return response()->json([
             'data' => $this->formatProduct($product),
@@ -116,6 +121,8 @@ class ProductController extends Controller
             'category_slug' => 'nullable|string',
             'thumbnail' => 'nullable|string',
             'tags' => 'nullable|array',
+            'collection_ids' => 'nullable|array',
+            'collection_ids.*' => 'integer|exists:collections,id',
         ]);
 
         $categoryId = null;
@@ -144,15 +151,18 @@ class ProductController extends Controller
             $tagIds = [];
             foreach ($validated['tags'] as $tagName) {
                 $tag = Tag::firstOrCreate(
-                    ['name' => $tagName],
-                    ['slug' => Str::slug($tagName)]
+                    ['name' => $tagName]
                 );
                 $tagIds[] = $tag->id;
             }
             $product->tags()->sync($tagIds);
         }
 
-        $product->load(['category', 'tags', 'images']);
+        if (! empty($validated['collection_ids'])) {
+            $product->collections()->sync($validated['collection_ids']);
+        }
+
+        $product->load(['category', 'tags', 'images', 'collections']);
 
         return response()->json([
             'data' => $this->formatProduct($product),
@@ -172,6 +182,8 @@ class ProductController extends Controller
             'category_slug' => 'nullable|string',
             'thumbnail' => 'nullable|string',
             'tags' => 'nullable|array',
+            'collection_ids' => 'nullable|array',
+            'collection_ids.*' => 'integer|exists:collections,id',
         ]);
 
         if (array_key_exists('category_slug', $validated)) {
@@ -184,21 +196,36 @@ class ProductController extends Controller
             unset($validated['category_slug']);
         }
 
+        $tagsToSync = null;
+        if (array_key_exists('tags', $validated)) {
+            $tagsToSync = $validated['tags'];
+            unset($validated['tags']);
+        }
+
+        $collectionsToSync = null;
+        if (array_key_exists('collection_ids', $validated)) {
+            $collectionsToSync = $validated['collection_ids'];
+            unset($validated['collection_ids']);
+        }
+
         $product->update($validated);
 
-        if (isset($validated['tags'])) {
+        if ($tagsToSync !== null) {
             $tagIds = [];
-            foreach ($validated['tags'] as $tagName) {
+            foreach ($tagsToSync as $tagName) {
                 $tag = Tag::firstOrCreate(
-                    ['name' => $tagName],
-                    ['slug' => Str::slug($tagName)]
+                    ['name' => $tagName]
                 );
                 $tagIds[] = $tag->id;
             }
             $product->tags()->sync($tagIds);
         }
 
-        $product->load(['category', 'tags', 'images']);
+        if ($collectionsToSync !== null) {
+            $product->collections()->sync($collectionsToSync ?? []);
+        }
+
+        $product->load(['category', 'tags', 'images', 'collections']);
 
         return response()->json([
             'data' => $this->formatProduct($product),
