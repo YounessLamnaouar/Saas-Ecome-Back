@@ -40,6 +40,25 @@ class NewsletterCatalogTest extends TestCase
         Http::assertSent(fn ($r) => $r->method() === 'GET' && $r->url() === 'https://api.brevo.com/v3/contacts/lists/7');
     }
 
+    public function test_brevo_diagnostic_reports_safe_provider_reason(): void
+    {
+        config(['services.brevo.api_key' => 'private-test-key', 'services.brevo.newsletter_list_id' => 7]);
+        Http::fake(['api.brevo.com/*' => Http::response(['code' => 'permission_denied', 'message' => 'Access denied for private-test-key'], 403)]);
+        $this->artisan('brevo:check-newsletter')
+            ->expectsOutputToContain('Provider code: permission_denied')
+            ->expectsOutputToContain('Provider message: Access denied for [REDACTED]')
+            ->assertFailed();
+    }
+
+    public function test_brevo_diagnostic_identifies_non_json_denial(): void
+    {
+        config(['services.brevo.api_key' => 'test-key', 'services.brevo.newsletter_list_id' => 7]);
+        Http::fake(['api.brevo.com/*' => Http::response('Forbidden', 403, ['Content-Type' => 'text/plain'])]);
+        $this->artisan('brevo:check-newsletter')
+            ->expectsOutputToContain('No Brevo JSON error message was returned.')
+            ->assertFailed();
+    }
+
     public function test_catalog_import_is_idempotent_and_preserves_stock(): void
     {
         Http::fake(['dummyjson.com/*' => Http::response(['products' => [[

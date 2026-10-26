@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 
 class CheckBrevoNewsletter extends Command
 {
@@ -47,6 +48,23 @@ class CheckBrevoNewsletter extends Command
             default => 'Brevo request failed. Check the account status and try again later.',
         };
         $this->error('HTTP '.$response->status().': '.$reason);
+        $message = $response->json('message');
+        $code = $response->json('code');
+        if (is_string($message) || is_string($code)) {
+            foreach (['Provider code' => $code, 'Provider message' => $message] as $label => $value) {
+                if (! is_string($value)) {
+                    continue;
+                }
+                $value = str_replace($key, '[REDACTED]', $value);
+                $value = preg_replace('/[\x00-\x1F\x7F]/u', ' ', $value);
+                $this->line($label.': '.OutputFormatter::escape(mb_substr($value, 0, 600)));
+            }
+        } else {
+            $this->warn('No Brevo JSON error message was returned. A proxy, firewall or gateway may have rejected the request before it reached Brevo.');
+        }
+        if (getenv('HTTPS_PROXY') || getenv('https_proxy') || getenv('ALL_PROXY')) {
+            $this->line('An outbound proxy is configured in this process (address hidden).');
+        }
 
         return self::FAILURE;
     }
