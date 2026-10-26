@@ -60,6 +60,8 @@ class AccountCheckoutTest extends TestCase
         Notification::assertSentTo($customer, OrderStatusChanged::class, fn ($n) => $n->status === 'confirmee' && str_contains($n->toMail($customer)->subject, 'Confirmed'));
         $this->withHeader('Accept-Language', 'fr')->patchJson("/api/v1/admin/orders/{$order->id}/status", ['status' => 'en_cours_de_livraison'])->assertOk()->assertJsonPath('data.status_label', 'En cours de livraison');
         $this->patchJson("/api/v1/admin/orders/{$order->id}/status", ['status' => 'en_cours_de_livraison'])->assertUnprocessable();
-        Notification::assertSentToTimes($customer, OrderStatusChanged::class, 2);
+        $this->withHeader('Accept-Language', 'en')->patchJson("/api/v1/admin/orders/{$order->id}/status", ['status' => 'livre'])->assertOk()->assertJsonPath('data.status_label', 'Delivered');
+        Notification::assertSentTo($customer, OrderStatusChanged::class, fn ($n) => $n->status === 'livre' && str_contains($n->toMail($customer)->subject, 'CMD-MAIL'));
+        Notification::assertSentToTimes($customer, OrderStatusChanged::class, 3);
     }
 }

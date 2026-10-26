@@ -12,6 +12,13 @@ class OrderStatusChanged extends Notification implements ShouldQueue
 {
     use Queueable;
 
+    public int $tries = 3;
+
+    public function backoff(): array
+    {
+        return [60, 300];
+    }
+
     public function __construct(public string $code, public string $status)
     {
         $this->afterCommit();
