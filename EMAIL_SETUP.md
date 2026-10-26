@@ -28,3 +28,7 @@ Confirmed, out-for-delivery and delivered transitions queue an email containing 
 ## Demo catalog with real product images
 
 Run `php artisan catalog:import-dummyjson` after pulling. It imports products from `https://dummyjson.com/products` into Laravel so stock, checkout and admin edits remain persistent. It preserves existing products and does not reset stock on repeated runs. Fresh database seeding now uses this importer. Allow `dummyjson.com` for import and `cdn.dummyjson.com` for browser images. Existing demo products are retained to avoid breaking historical order references.
+
+## Troubleshooting newsletter failures
+
+Run `php artisan config:clear`, then `php artisan brevo:check-newsletter` on the machine serving the backend. This checks API authentication and list access without creating a contact or exposing credentials. A working SMTP password does not verify the separate Contacts API key. HTTP 401/403 can indicate a key, account permission or authorized-IP issue; HTTP 404 indicates a missing/inaccessible list. Subscription failures also record a safe HTTP status in Laravel logs, without keys, subscriber addresses or raw provider response bodies.

@@ -30,6 +30,16 @@ class NewsletterCatalogTest extends TestCase
         Http::assertSent(fn ($r) => $r['email'] === 'test@example.com' && $r['listIds'] === [7] && $r['updateEnabled'] === true && $r->hasHeader('api-key', 'test-key'));
     }
 
+    public function test_read_only_brevo_diagnostic_checks_list_access(): void
+    {
+        config(['services.brevo.api_key' => 'test-key', 'services.brevo.newsletter_list_id' => 7]);
+        Http::fake(['api.brevo.com/*' => Http::sequence()->push(['id' => 7])->push([], 401)->push([], 404)]);
+        $this->artisan('brevo:check-newsletter')->assertSuccessful();
+        $this->artisan('brevo:check-newsletter')->assertFailed();
+        $this->artisan('brevo:check-newsletter')->assertFailed();
+        Http::assertSent(fn ($r) => $r->method() === 'GET' && $r->url() === 'https://api.brevo.com/v3/contacts/lists/7');
+    }
+
     public function test_catalog_import_is_idempotent_and_preserves_stock(): void
     {
         Http::fake(['dummyjson.com/*' => Http::response(['products' => [[
