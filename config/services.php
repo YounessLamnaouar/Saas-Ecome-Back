@@ -17,6 +17,9 @@ return [
     'brevo' => [
         'api_key' => env('BREVO_API_KEY'),
         'newsletter_list_id' => env('BREVO_NEWSLETTER_LIST_ID'),
+        'contact_sender' => env('BREVO_CONTACT_SENDER', 'lamnaouaryouness231@gmail.com'),
+        'contact_sender_name' => env('BREVO_CONTACT_SENDER_NAME', 'Fashion Store'),
+        'contact_recipient' => env('CONTACT_RECIPIENT_EMAIL', 'lamnaouaryouness231@gmail.com'),
     ],
 
     'postmark' => [
