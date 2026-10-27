@@ -23,11 +23,39 @@ class NewsletterCatalogTest extends TestCase
     public function test_newsletter_subscribes_to_configured_list_and_reports_provider_errors(): void
     {
         config(['services.brevo.api_key' => 'test-key', 'services.brevo.newsletter_list_id' => 7]);
-        Http::fake(['api.brevo.com/*' => Http::sequence()->push(['id' => 1], 201)->push([], 204)->push([], 401)]);
+        Http::fake(['api.brevo.com/*' => Http::sequence()->push([], 404)->push(['id' => 1], 201)->push(['listIds' => [7]])->push([], 401)]);
         foreach ([200, 200, 503] as $status) {
             $this->postJson('/api/v1/newsletter/subscribe', ['email' => 'Test@example.com'])->assertStatus($status);
         }
-        Http::assertSent(fn ($r) => $r['email'] === 'test@example.com' && $r['listIds'] === [7] && $r['updateEnabled'] === true && $r->hasHeader('api-key', 'test-key'));
+        Http::assertSent(fn ($r) => $r->method() === 'POST' && $r['email'] === 'test@example.com' && $r['listIds'] === [7] && ! isset($r['updateEnabled']) && $r->hasHeader('api-key', 'test-key'));
+    }
+
+    public function test_existing_contact_is_added_using_list_endpoint(): void
+    {
+        config(['services.brevo.api_key' => 'test-key', 'services.brevo.newsletter_list_id' => 7]);
+        Http::fake(['api.brevo.com/*' => Http::sequence()
+            ->push(['listIds' => [2]])
+            ->push(['contacts' => ['success' => ['test@example.com'], 'failure' => []]], 201)]);
+        $this->postJson('/api/v1/newsletter/subscribe', ['email' => 'Test@example.com'])->assertOk();
+        Http::assertSent(fn ($r) => $r->url() === 'https://api.brevo.com/v3/contacts/lists/7/contacts/add' && $r['emails'] === ['test@example.com']);
+        Http::assertSentCount(2);
+    }
+
+    public function test_failed_list_membership_does_not_report_success(): void
+    {
+        config(['services.brevo.api_key' => 'test-key', 'services.brevo.newsletter_list_id' => 7]);
+        Http::fake(['api.brevo.com/*' => Http::sequence()
+            ->push(['listIds' => [2]])
+            ->push(['contacts' => ['success' => [], 'failure' => ['test@example.com']]], 201)]);
+        $this->postJson('/api/v1/newsletter/subscribe', ['email' => 'test@example.com'])->assertStatus(503);
+    }
+
+    public function test_temporary_provider_error_is_retried(): void
+    {
+        config(['services.brevo.api_key' => 'test-key', 'services.brevo.newsletter_list_id' => 7]);
+        Http::fake(['api.brevo.com/*' => Http::sequence()->push([], 504)->push(['listIds' => [7]])]);
+        $this->postJson('/api/v1/newsletter/subscribe', ['email' => 'test@example.com'])->assertOk();
+        Http::assertSentCount(2);
     }
 
     public function test_read_only_brevo_diagnostic_checks_list_access(): void
