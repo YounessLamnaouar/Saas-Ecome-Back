@@ -61,7 +61,10 @@ class AccountCheckoutTest extends TestCase
         $this->withHeader('Accept-Language', 'fr')->patchJson("/api/v1/admin/orders/{$order->id}/status", ['status' => 'en_cours_de_livraison'])->assertOk()->assertJsonPath('data.status_label', 'En cours de livraison');
         $this->patchJson("/api/v1/admin/orders/{$order->id}/status", ['status' => 'en_cours_de_livraison'])->assertUnprocessable();
         $this->withHeader('Accept-Language', 'en')->patchJson("/api/v1/admin/orders/{$order->id}/status", ['status' => 'livre'])->assertOk()->assertJsonPath('data.status_label', 'Delivered');
-        Notification::assertSentTo($customer, OrderStatusChanged::class, fn ($n) => $n->status === 'livre' && str_contains($n->toMail($customer)->subject, 'CMD-MAIL'));
+        Notification::assertSentTo($customer, OrderStatusChanged::class, fn ($n) => $n->status === 'livre'
+            && str_contains($n->toMail($customer)->subject, 'CMD-MAIL')
+            && $n->toMail($customer)->actionText === 'Rate your products'
+            && $n->toMail($customer)->actionUrl === rtrim(config('app.frontend_url'), '/').'/orders/CMD-MAIL');
         Notification::assertSentToTimes($customer, OrderStatusChanged::class, 3);
     }
 }

@@ -33,9 +33,16 @@ class OrderStatusChanged extends Notification implements ShouldQueue
     {
         $label = OrderStatus::from($this->status)->label();
 
-        return (new MailMessage)->subject("Order {$this->code}: {$label}")
+        $message = (new MailMessage)->subject("Order {$this->code}: {$label}")
             ->greeting("Hello {$notifiable->name},")
             ->line("Your order {$this->code} is now {$label}.")
             ->line('Thank you for shopping with us.');
+
+        if ($this->status === OrderStatus::LIVRE->value) {
+            $message->line('Your products are ready to review. Share your experience with other shoppers.')
+                ->action('Rate your products', rtrim(config('app.frontend_url'), '/').'/orders/'.rawurlencode($this->code));
+        }
+
+        return $message;
     }
 }
