@@ -33,7 +33,8 @@ class ProductController extends Controller
                 'slug' => $product->category->slug,
             ] : null,
             'brand' => $product->brand ?? '',
-            'rating' => (float) ($product->rating ?? 0),
+            'rating' => round((float) ($product->reviews_avg_rating ?? 0), 1),
+            'review_count' => (int) ($product->reviews_count ?? 0),
             'stock' => (int) ($product->stock ?? 0),
             'availability' => ($product->stock ?? 0) > 0 ? 'in_stock' : 'out_of_stock',
             'tags' => $product->relationLoaded('tags') && $product->tags ? $product->tags->pluck('name')->toArray() : [],
@@ -48,7 +49,7 @@ class ProductController extends Controller
 
     public function index(Request $request)
     {
-        $query = Product::with(['category', 'tags', 'images', 'collections']);
+        $query = Product::with(['category', 'tags', 'images', 'collections'])->withAvg('reviews', 'rating')->withCount('reviews');
 
         if ($request->filled('category')) {
             $query->whereHas('category', function ($q) use ($request) {
@@ -78,7 +79,10 @@ class ProductController extends Controller
             if ($sortBy === 'name') {
                 $sortBy = 'title';
             }
-            $query->orderBy($sortBy, $dir);
+            if ($sortBy === 'rating') $sortBy = 'reviews_avg_rating';
+            if (in_array($sortBy, ['title', 'price', 'created_at', 'stock', 'reviews_avg_rating', 'id'])) {
+                $query->orderBy($sortBy, $dir);
+            }
         } else {
             $query->latest();
         }
@@ -102,6 +106,7 @@ class ProductController extends Controller
     public function show(Product $product)
     {
         $product->load(['category', 'tags', 'images', 'collections']);
+        $product->loadAvg('reviews', 'rating')->loadCount('reviews');
 
         return response()->json([
             'data' => $this->formatProduct($product),
@@ -144,7 +149,7 @@ class ProductController extends Controller
             'stock' => $validated['stock'] ?? 0,
             'category_id' => $categoryId,
             'thumbnail' => $validated['thumbnail'] ?? 'https://picsum.photos/seed/' . Str::random(6) . '/600/600',
-            'rating' => 5,
+            'rating' => 0,
         ]);
 
         if (! empty($validated['tags'])) {
@@ -163,6 +168,7 @@ class ProductController extends Controller
         }
 
         $product->load(['category', 'tags', 'images', 'collections']);
+        $product->loadAvg('reviews', 'rating')->loadCount('reviews');
 
         return response()->json([
             'data' => $this->formatProduct($product),
@@ -226,6 +232,7 @@ class ProductController extends Controller
         }
 
         $product->load(['category', 'tags', 'images', 'collections']);
+        $product->loadAvg('reviews', 'rating')->loadCount('reviews');
 
         return response()->json([
             'data' => $this->formatProduct($product),

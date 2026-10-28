@@ -12,6 +12,12 @@ Route::prefix('v1')->group(function () {
     Route::post('/contact', [\App\Http\Controllers\Api\ContactController::class, 'store'])->middleware('throttle:5,1');
     Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe'])->middleware('throttle:5,1');
 
+    Route::get('/products/{product}/reviews', [\App\Http\Controllers\Api\ReviewController::class, 'index']);
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/products/{product}/my-review', [\App\Http\Controllers\Api\ReviewController::class, 'mine']);
+        Route::put('/products/{product}/reviews', [\App\Http\Controllers\Api\ReviewController::class, 'store'])->middleware('throttle:10,1');
+        Route::delete('/products/{product}/reviews', [\App\Http\Controllers\Api\ReviewController::class, 'destroy']);
+    });
     // --- Auth ---
     Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
     Route::post('/auth/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
@@ -35,12 +41,15 @@ Route::prefix('v1')->group(function () {
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/my-orders', [OrderController::class, 'myOrders']);
+        Route::get('/my-orders/{code}/invoice', [\App\Http\Controllers\Api\InvoiceController::class, 'customer'])->middleware('throttle:20,1');
         Route::get('/my-orders/{code}', [OrderController::class, 'myOrder']);
     });
 
     // --- Admin-only writes ---
     Route::middleware(['auth:sanctum', 'admin'])->group(function () {
+        Route::get('/admin/stats', [\App\Http\Controllers\Api\DashboardController::class, 'index']);
         Route::get('/admin/orders', [OrderController::class, 'adminIndex']);
+        Route::get('/admin/orders/{id}/invoice', [\App\Http\Controllers\Api\InvoiceController::class, 'admin'])->middleware('throttle:30,1');
         Route::get('/admin/orders/{id}', [OrderController::class, 'adminShow']);
         Route::patch('/admin/orders/{id}/status', [OrderController::class, 'adminUpdateStatus']);
 

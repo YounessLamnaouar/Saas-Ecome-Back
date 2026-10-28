@@ -26,6 +26,11 @@ class Product extends Model
         'thumbnail',
     ];
 
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
+
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);

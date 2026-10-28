@@ -57,7 +57,7 @@ class OrderController extends Controller
     {
         $validated = $request->validate([
             'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|integer|exists:products,id',
+            'items.*.product_id' => 'required|integer|distinct|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.color' => 'nullable|string',
             'customer' => 'nullable|array',
@@ -172,10 +172,12 @@ class OrderController extends Controller
                 'created_at' => now(),
             ]);
 
+            DB::table('order_email_deliveries')->insert(['order_id' => $order->id, 'created_at' => now(), 'updated_at' => now()]);
             return $order;
         });
 
         $createdOrder->load(['items', 'histories', 'user']);
+        app(\App\Services\StoreOrderEmail::class)->send($createdOrder->id);
 
         return response()->json([
             'message' => 'Order placed successfully.',

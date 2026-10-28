@@ -57,3 +57,17 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+## Store operations
+
+- Apply schema changes with `php artisan migrate` before deploying the frontend.
+- Order placement creates a durable `order_email_deliveries` record and attempts a Brevo notification after committing the order. It uses `BREVO_API_KEY`, `BREVO_CONTACT_SENDER`, `BREVO_CONTACT_SENDER_NAME` and `CONTACT_RECIPIENT_EMAIL`. A provider failure does not roll back checkout or stock.
+- Run Laravel's scheduler for automatic retries: `php artisan schedule:work` during local development, or invoke `php artisan schedule:run` every minute in production. Pending messages are retried every five minutes. `php artisan orders:retry-store-emails` also runs a manual retry. The dashboard reports pending notifications. Brevo acceptance is recorded; inbox delivery still depends on the provider.
+- The dashboard aggregates the complete local database, including any retained demo orders. Revenue counts delivered orders only; open order value is shown separately. Inventory value uses list prices, not cost or profit.
+- Reviews require a signed-in customer with a delivered order containing the product. Each customer has one editable review per product and can delete only their own. Imported demo ratings are no longer displayed or used for rating sort; no customer reviews are fabricated.
+- Refresh stock reads the current database values without changing inventory quantities. Actual restocking remains an admin product edit.
+
+Order-status emails are queued for the customer's account email. Keep `php artisan queue:work --tries=3 --timeout=30` running alongside the API (and restart it after code/config changes). The scheduler handles failed store-order retries separately. Brevo's API key must allow **Transactional email: All**, while retaining the newsletter Contacts permission. Permission failures are shown on the admin dashboard; successful checkout means the order is saved, not that an email has reached the inbox.
+
+## Order invoices
+Authenticated customers can download an invoice from checkout confirmation, My Orders, and order details. Administrators can download it from the order dialog. PDFs are generated server-side from saved order-item prices/names, including items removed from the catalog. Customer downloads are restricted by ownership; admin downloads require administrator access. Responses are private/no-store. Bills use the store's existing USD currency and cash-on-delivery method; no tax registration or payment confirmation is invented. TCPDF supplies Unicode fonts and automatic pagination.
