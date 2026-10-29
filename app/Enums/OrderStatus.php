@@ -8,6 +8,7 @@ enum OrderStatus: string
     case CONFIRMEE = 'confirmee';
     case EN_COURS_DE_LIVRAISON = 'en_cours_de_livraison';
     case LIVRE = 'livre';
+    case CANCELLED = 'cancelled';
 
     public function label(string $locale = 'en'): string
     {
@@ -15,6 +16,7 @@ enum OrderStatus: string
             self::EN_ATTENTE => $locale === 'fr' ? 'En attente' : 'Pending',
             self::CONFIRMEE => $locale === 'fr' ? 'Confirmée' : 'Confirmed',
             self::EN_COURS_DE_LIVRAISON => $locale === 'fr' ? 'En cours de livraison' : 'Out for delivery',
+            self::CANCELLED => $locale === 'fr' ? 'Annulée' : 'Cancelled',
             self::LIVRE => $locale === 'fr' ? 'Livrée' : 'Delivered',
         };
     }
@@ -32,6 +34,8 @@ enum OrderStatus: string
     public function canTransitionTo(self|string $next): bool
     {
         $nextValue = $next instanceof self ? $next->value : $next;
+        if ($this === self::CANCELLED) return false;
+        if ($nextValue === self::CANCELLED->value) return $this === self::EN_ATTENTE;
         $order = self::order();
 
         $currentRank = $order[$this->value] ?? 0;

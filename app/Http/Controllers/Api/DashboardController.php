@@ -23,7 +23,7 @@ class DashboardController extends Controller
             'totalProducts' => Product::count(), 'totalCategories' => Category::count(), 'totalCollections' => Collection::count(),
             'totalOrders' => Order::count(), 'pendingOrders' => Order::where('status', 'en_attente')->count(),
             'deliveredRevenue' => (float) Order::where('status', 'livre')->sum('total'),
-            'openOrderValue' => (float) Order::where('status', '!=', 'livre')->sum('total'),
+            'openOrderValue' => (float) Order::whereNotIn('status', ['livre', 'cancelled'])->sum('total'),
             'lowStock' => Product::whereBetween('stock', [1, 20])->count(), 'outOfStock' => Product::where('stock', '<=', 0)->count(),
             'inventoryValue' => round((float) Product::selectRaw('SUM(price * stock) as value')->value('value'), 2),
             'avgRating' => round((float) Review::avg('rating'), 1), 'reviewCount' => Review::count(),

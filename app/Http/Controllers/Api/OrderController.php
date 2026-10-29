@@ -301,6 +301,11 @@ class OrderController extends Controller
                 ], 422);
             }
 
+            if ($newStatus === OrderStatus::CANCELLED) {
+                foreach ($order->items as $item) {
+                    if ($item->product_id) Product::whereKey($item->product_id)->increment('stock', $item->quantity);
+                }
+            }
             $order->update(['status' => $newStatus]);
 
             $order->histories()->create([

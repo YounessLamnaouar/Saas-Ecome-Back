@@ -120,6 +120,35 @@ class OrderTrackingTest extends TestCase
         $this->assertEquals(5, $this->product2->fresh()->stock);
     }
 
+    public function test_cancelling_restores_ordered_stock_only_once(): void
+    {
+        \Illuminate\Support\Facades\Notification::fake();
+        Sanctum::actingAs($this->customer1);
+        $response = $this->postJson('/api/v1/orders', [
+            'customer' => ['name' => 'Alice Martin', 'phone' => '0612345678', 'address' => '123 Main St', 'city' => 'Rabat'],
+            'items' => [
+                ['product_id' => $this->product1->id, 'quantity' => 2],
+                ['product_id' => $this->product2->id, 'quantity' => 3],
+            ],
+        ])->assertCreated();
+        $order = Order::where('code', $response->json('data.code'))->firstOrFail();
+        $this->assertEquals(8, $this->product1->fresh()->stock);
+        $this->assertEquals(2, $this->product2->fresh()->stock);
+
+        // Another sale must remain deducted when this order is cancelled.
+        $this->product1->decrement('stock', 1);
+        Sanctum::actingAs($this->admin);
+        $url = "/api/v1/admin/orders/{$order->id}/status";
+        $this->patchJson($url, ['status' => 'cancelled'])->assertOk()->assertJsonPath('data.status', 'cancelled');
+        $this->assertEquals(9, $this->product1->fresh()->stock);
+        $this->assertEquals(5, $this->product2->fresh()->stock);
+        $this->patchJson($url, ['status' => 'cancelled'])->assertStatus(422);
+        $this->patchJson($url, ['status' => 'confirmee'])->assertStatus(422);
+        $this->assertEquals(9, $this->product1->fresh()->stock);
+        $this->assertEquals(5, $this->product2->fresh()->stock);
+        $this->assertEquals(1, $order->histories()->where('status', 'cancelled')->count());
+    }
+
     public function test_order_tracking_with_code_and_phone(): void
     {
         $order = Order::create([
